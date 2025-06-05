@@ -33,13 +33,15 @@ namespace NServiceBus.Extensions.IntegrationTesting.Tests
             var result = await ExecuteAndWaitForHandled<FinalMessage>(() => session.SendLocal(firstMessage));
 
             result.IncomingMessageContexts.Count.ShouldBe(3);
-            result.OutgoingMessageContexts.Count.ShouldBe(3);
+            result.OutgoingMessageContexts.Count.ShouldBe(4);
 
             result.ReceivedMessages.ShouldNotBeEmpty();
 
             var message = result.ReceivedMessages.OfType<FinalMessage>().Single();
+            var outputEvent = result.SentMessages.OfType<OutputEvent>().Single();
 
             message.Message.ShouldBe(firstMessage.Message);
+            outputEvent.Message.ShouldBe(firstMessage.Message);
         }
 
         [Fact]
@@ -111,6 +113,11 @@ namespace NServiceBus.Extensions.IntegrationTesting.Tests
             public string Message { get; set; }
         }
 
+        public class OutputEvent : IEvent
+        {
+            public string Message { get; set; }
+        }
+
         public class FirstHandler : IHandleMessages<FirstMessage>
         {
             public Task Handle(FirstMessage message, IMessageHandlerContext context) => 
@@ -126,7 +133,7 @@ namespace NServiceBus.Extensions.IntegrationTesting.Tests
         public class FinalHandler : IHandleMessages<FinalMessage>
         {
             public Task Handle(FinalMessage message, IMessageHandlerContext context) => 
-                Task.CompletedTask;
+                context.Publish(new OutputEvent{Message = message.Message});
         }
 
         public class StartSagaMessage : ICommand
